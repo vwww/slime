@@ -9,16 +9,14 @@ import (
 )
 
 func init() {
-	http.HandleFunc("/slime/", slime.HandleIndex)
-	http.HandleFunc("/slime/c", slime.HandleConnect)
-	http.HandleFunc("/slime/d", slime.HandleData)
-	http.HandleFunc("/slime/x", slime.HandleDisc)
-	http.Handle("/crossdomain.xml", http.FileServer(http.Dir(".")))
+	http.HandleFunc("/s/n", slime.HandleNum)
+	http.Handle("/s", slime.Handler)
 }
 
 func main() {
-	slime_done := slime.LaunchCron()
-	defer close(slime_done)
+	// OLD background tasks
+	// slime_done := slime.LaunchCron()
+	// defer close(slime_done)
 
 	bind := ":8080"
 	if env := os.Getenv("OPENSHIFT_GO_PORT"); env != "" {

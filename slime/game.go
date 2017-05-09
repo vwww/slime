@@ -12,6 +12,9 @@ const PHYS_PER_STATE = PHYS_FPS / NETW_FPS
 const RAD_PL = 0.1
 const RAD_BALL = 0.03
 
+const NET_W = 0.02
+const NET_H = 0.2
+
 const BALL_POST_COLLISION_VEL_X_MAX = 1.875 / PHYS_FPS
 const BALL_POST_COLLISION_VEL_Y_MAX = 2.2 / PHYS_FPS
 const BALL_GRAV_ACCEL = 0.1 / PHYS_FPS
@@ -139,9 +142,9 @@ func movePlayer(p *Player, left bool) {
 		p.V.Y += PL_VEL_JUMP
 	}
 
-	L, R := RAD_PL, 1.0-RAD_PL
+	L, R := RAD_PL, 1.0-RAD_PL-NET_W/2
 	if !left {
-		L, R = 1.0+RAD_PL, 2.0-RAD_PL
+		L, R = 1.0+RAD_PL+NET_W/2, 2.0-RAD_PL
 	}
 
 	// Move X

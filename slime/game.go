@@ -149,7 +149,7 @@ func movePlayer(p *Player, left bool) {
 	if p.O.X < L {
 		p.O.X = L
 		p.V.X = 0
-	} else if p.O.Y > R {
+	} else if p.O.X > R {
 		p.O.X = R
 		p.V.X = 0
 	}

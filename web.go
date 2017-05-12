@@ -11,6 +11,11 @@ import (
 func init() {
 	http.HandleFunc("/s/n", slime.HandleNum)
 	http.Handle("/s", slime.Handler)
+	http.HandleFunc("/", hello)
+}
+
+func hello(res http.ResponseWriter, req *http.Request) {
+	fmt.Fprintf(res, "hello")
 }
 
 func main() {

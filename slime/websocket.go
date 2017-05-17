@@ -68,23 +68,20 @@ func processHello(c *websocket.Conn) *RemotePlayer {
 func reader(r *RemotePlayer, c *websocket.Conn) {
 	defer r.Close()
 
-	c.SetPongHandler(func(appData string) error {
-		msg := []byte(appData)
-		if len(msg) >= 8 {
-			t := binary.BigEndian.Uint64(msg)
-			n := uint64(time.Now().UnixNano() / 1000000)
-			if n >= t {
-				newPing := int(n - t)
-				r.AddPing(newPing)
-			}
-		}
-		return nil
-	})
-
 	for {
 		_, msg, err := c.ReadMessage()
 		if err != nil {
 			break
+		}
+		if len(msg) == 8 {
+			// intercept pongs
+			t := binary.BigEndian.Uint64(msg)
+			n := uint64(time.Now().UnixNano())
+			if n >= t {
+				newPing := int((n - t) / 1000000)
+				r.AddPing(newPing)
+			}
+			continue
 		}
 		r.Recv(msg)
 	}
@@ -96,11 +93,11 @@ func writer(r *RemotePlayer, c *websocket.Conn) {
 	for msg := range r.SendBuf {
 		mt := websocket.BinaryMessage
 		if msg == nil {
-			mt = websocket.PingMessage
-			var buf [8]byte
-			msg = buf[:]
-			t := uint64(time.Now().UnixNano() / 1000000)
-			binary.BigEndian.PutUint64(msg, t)
+			// mt = websocket.PingMessage
+			msg = make([]byte, 9)
+			msg[0] = 9
+			t := uint64(time.Now().UnixNano())
+			binary.BigEndian.PutUint64(msg[1:], t)
 		}
 		if err := c.WriteMessage(mt, msg); err != nil {
 			break

@@ -1,11 +1,13 @@
 package slime
 
 import (
+	"encoding/binary"
 	"fmt"
 	"net/http"
 	"sync"
+	"time"
 
-	"golang.org/x/net/websocket"
+	"github.com/gorilla/websocket"
 )
 
 var pCount = 0
@@ -16,20 +18,21 @@ func HandleNum(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprintf(w, "%v", n)
 }
 
-var Handler = websocket.Handler(HandlePlayer)
+var upgrader = websocket.Upgrader{
+	CheckOrigin: func(r *http.Request) bool { return true },
+}
 
-func HandlePlayer(ws *websocket.Conn) {
-	defer ws.Close()
-
-	r := ws.Request()
-	if r == nil {
+func HandlePlayer(w http.ResponseWriter, r *http.Request) {
+	logline(" [%v] connected", r.RemoteAddr)
+	c, err := upgrader.Upgrade(w, r, nil)
+	if err != nil {
+		logline("*[%v] upgrade failed: %v", r.RemoteAddr, err)
 		return
 	}
-
-	logline(" [%v] connected", r.RemoteAddr)
 	defer logline(" [%v] disconnected", r.RemoteAddr)
+	defer c.Close()
 
-	p := processHello(ws)
+	p := processHello(c)
 	if p == nil {
 		return
 	}
@@ -39,8 +42,8 @@ func HandlePlayer(ws *websocket.Conn) {
 	pCountLock.Unlock()
 	logline("+[%v] %v #%06x (%v now)", r.RemoteAddr, p.Name, p.Color, pCount)
 
-	go reader(p, ws)
-	go writer(p, ws)
+	go reader(p, c)
+	go writer(p, c)
 	playMatches(p.Player)
 
 	pCountLock.Lock()
@@ -49,37 +52,57 @@ func HandlePlayer(ws *websocket.Conn) {
 	logline("-[%v] %v (%v total)", r.RemoteAddr, p.Name, pCount)
 }
 
-func processHello(ws *websocket.Conn) *RemotePlayer {
-	var h []byte
-	err := websocket.Message.Receive(ws, &h)
+func processHello(c *websocket.Conn) *RemotePlayer {
+	mt, h, err := c.ReadMessage()
 
-	if err != nil || len(h) < 3 {
+	if mt != websocket.BinaryMessage || err != nil || len(h) < 3 {
 		return nil
 	}
 
-	n := h[3:]
-	c := int(h[0])<<16 | int(h[1])<<8 | int(h[2])
+	name := h[3:]
+	col := int(h[0])<<16 | int(h[1])<<8 | int(h[2])
 
-	return NewRemotePlayer(n, c)
+	return NewRemotePlayer(name, col)
 }
 
-func reader(r *RemotePlayer, ws *websocket.Conn) {
+func reader(r *RemotePlayer, c *websocket.Conn) {
 	defer r.Close()
 
+	c.SetPongHandler(func(appData string) error {
+		msg := []byte(appData)
+		if len(msg) >= 8 {
+			t := binary.BigEndian.Uint64(msg)
+			n := uint64(time.Now().UnixNano() / 1000000)
+			if n >= t {
+				newPing := int(n - t)
+				r.AddPing(newPing)
+			}
+		}
+		return nil
+	})
+
 	for {
-		var msg []byte
-		if err := websocket.Message.Receive(ws, &msg); err != nil {
+		_, msg, err := c.ReadMessage()
+		if err != nil {
 			break
 		}
 		r.Recv(msg)
 	}
 }
 
-func writer(r *RemotePlayer, ws *websocket.Conn) {
+func writer(r *RemotePlayer, c *websocket.Conn) {
 	defer r.Close()
 
 	for msg := range r.SendBuf {
-		if err := websocket.Message.Send(ws, msg); err != nil {
+		mt := websocket.BinaryMessage
+		if msg == nil {
+			mt = websocket.PingMessage
+			var buf [8]byte
+			msg = buf[:]
+			t := uint64(time.Now().UnixNano() / 1000000)
+			binary.BigEndian.PutUint64(msg, t)
+		}
+		if err := c.WriteMessage(mt, msg); err != nil {
 			break
 		}
 	}

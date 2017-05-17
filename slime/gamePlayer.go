@@ -26,7 +26,8 @@ type Player struct {
 	Stopped  bool
 	stopLock sync.Mutex
 
-	// If implemented, server bots would "send" nothing
+	// If implemented, we would "send" nothing to server bots
+	Ping int
 	PlayerSender
 }
 
@@ -37,12 +38,15 @@ type PlayerSender interface {
 	SendLeave()
 	SendEndRound(win bool)
 	SendNextRound(isFirst bool)
+	SendPing()
+	SendPingTimes(lPing, rPing int)
 }
 
 func NewPlayer(name []byte, col int, s PlayerSender) *Player {
 	p := new(Player)
 	p.Name = filterName(name)
 	p.Color = filterColor(col)
+	p.Ping = -1
 	p.Stop = make(chan struct{})
 	p.PlayerSender = s
 	return p
@@ -58,6 +62,13 @@ func (p *Player) Close() {
 			close(p.Stop)
 		}
 	}
+}
+
+func (p *Player) AddPing(ping int) {
+	if p.Ping != -1 {
+		ping = ((p.Ping * 3) + ping) / 4
+	}
+	p.Ping = ping
 }
 
 func filterName(name []byte) string {

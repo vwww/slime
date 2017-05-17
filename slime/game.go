@@ -195,6 +195,7 @@ func (g *Game) Run() {
 	winner := 3
 	p1First := (rand.Intn(2) == 0)
 	intermissionEnd := time.Time{}
+	pingDivider := 0
 
 GAME_LOOP:
 	for {
@@ -217,6 +218,15 @@ GAME_LOOP:
 
 			g.P1.SendState(transformState(g.P1, g.P2, g.B.MoveState, true))
 			g.P2.SendState(transformState(g.P1, g.P2, g.B.MoveState, false))
+			// Send ping times when we have measurements for both
+			p1Ping := g.P1.Ping
+			if p1Ping != -1 {
+				p2Ping := g.P2.Ping
+				if p2Ping != -1 {
+					g.P1.SendPingTimes(p1Ping, p2Ping)
+					g.P2.SendPingTimes(p2Ping, p1Ping)
+				}
+			}
 
 			if winner != 0 {
 				if oldWinner == 0 {
@@ -232,6 +242,14 @@ GAME_LOOP:
 				}
 			}
 			t = t.Add(1000 / NETW_FPS * time.Millisecond)
+		}
+
+		if pingDivider == 0 {
+			g.P1.SendPing()
+			g.P2.SendPing()
+			pingDivider = 6
+		} else {
+			pingDivider--
 		}
 
 		time.Sleep(40 * time.Millisecond)

@@ -20,6 +20,15 @@ func NewRemotePlayer(name []byte, col int) *RemotePlayer {
 	return r
 }
 
+func (r *RemotePlayer) Send(b []byte) {
+	select {
+	case r.SendBuf <- b:
+	default:
+		// queue overflow
+		r.Close()
+	}
+}
+
 func (r *RemotePlayer) Recv(b []byte) {
 	// For speed, process immediately instead of using chan
 	if len(b) != 0 {
@@ -27,15 +36,6 @@ func (r *RemotePlayer) Recv(b []byte) {
 		r.L = (b & 1) != 0
 		r.R = (b & 2) != 0
 		r.U = (b & 4) != 0
-	}
-}
-
-func (r *RemotePlayer) Send(b []byte) {
-	select {
-	case r.SendBuf <- b:
-	default:
-		// queue overflow
-		r.Close()
 	}
 }
 
@@ -145,4 +145,22 @@ func (r *RemotePlayer) SendNextRound(isFirst bool) {
 	} else {
 		r.Send([]byte{7})
 	}
+}
+
+func (r *RemotePlayer) SendPing() { r.Send(nil) }
+
+func (r *RemotePlayer) SendPingTimes(lPing, rPing int) {
+	// TODO move ping times to state message
+	if lPing > 0xFFF {
+		lPing = 0xFFF
+	}
+	if rPing > 0xFFF {
+		rPing = 0xFFF
+	}
+	r.Send([]byte{
+		8,
+		byte(lPing),
+		byte(((lPing >> 4) & 0xF0) | ((rPing >> 8) & 0x0F)),
+		byte(rPing),
+	})
 }

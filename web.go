@@ -10,7 +10,7 @@ import (
 
 func init() {
 	http.HandleFunc("/s/n", slime.HandleNum)
-	http.Handle("/s", slime.Handler)
+	http.HandleFunc("/s", slime.HandlePlayer)
 	http.HandleFunc("/", hello)
 }
 

@@ -13,15 +13,15 @@ const RAD_PL = 0.1
 const RAD_BALL = 0.03
 
 const NET_W = 0.02
-const NET_H = 0.2
+const NET_H = 0.175
 
-const BALL_POST_COLLISION_VEL_X_MAX = 1.875 / PHYS_FPS
-const BALL_POST_COLLISION_VEL_Y_MAX = 2.2 / PHYS_FPS
-const BALL_GRAV_ACCEL = 0.1 / PHYS_FPS
+const BALL_POST_COLLISION_VEL_X_MAX = 0.9375
+const BALL_POST_COLLISION_VEL_Y_MAX = 1.375
+const BALL_GRAV_ACCEL = 3.125
 
-const PL_SPEED_X = 1.0 / PHYS_FPS
-const PL_VEL_JUMP = 3.1 / PHYS_FPS
-const PL_GRAV_ACCEL = 0.2 / PHYS_FPS
+const PL_SPEED_X = 0.5
+const PL_VEL_JUMP = 1.9375
+const PL_GRAV_ACCEL = 6.25
 
 type Ball struct {
 	MoveState
@@ -98,9 +98,9 @@ func moveBall(g *Game) bool {
 
 	b := &g.B
 	// update positions
-	b.V.Y -= BALL_GRAV_ACCEL
-	b.O.X += b.V.X
-	b.O.Y += b.V.Y
+	b.V.Y -= BALL_GRAV_ACCEL / PHYS_FPS
+	b.O.X += b.V.X / PHYS_FPS
+	b.O.Y += b.V.Y / PHYS_FPS
 
 	// collide with players
 	moveBallCollide(b, g.P1)
@@ -148,7 +148,7 @@ func movePlayer(p *Player, left bool) {
 	}
 
 	// Move X
-	p.O.X += p.V.X
+	p.O.X += p.V.X / PHYS_FPS
 	if p.O.X < L {
 		p.O.X = L
 		p.V.X = 0
@@ -159,8 +159,8 @@ func movePlayer(p *Player, left bool) {
 
 	// Move Y
 	if p.O.Y != 0 || p.V.Y != 0 {
-		p.V.Y -= PL_GRAV_ACCEL
-		p.O.Y += p.V.Y
+		p.V.Y -= PL_GRAV_ACCEL / PHYS_FPS
+		p.O.Y += p.V.Y / PHYS_FPS
 		if p.O.Y <= 0 {
 			p.O.Y = 0
 			p.V.Y = 0

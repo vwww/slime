@@ -59,6 +59,21 @@ func (g *Game) StartRound(p1First bool) {
 	g.B.V.Y = 0
 }
 
+func clamp(f *float64, min, max float64) bool {
+	if *f < min {
+		*f = min
+		return true
+	} else if *f > max {
+		*f = max
+		return true
+	}
+	return false
+}
+
+func clampAbs(f *float64, magnitude float64) bool {
+	return clamp(f, -magnitude, +magnitude)
+}
+
 func moveBallCollide(b *Ball, p *Player) {
 	const COLLISION_DIST = RAD_PL + RAD_BALL
 	// COLLISION_FACTOR = 2 / (mB/mP + 1)
@@ -68,12 +83,13 @@ func moveBallCollide(b *Ball, p *Player) {
 
 	// difference in position
 	dx := b.O.Sub(p.O)
-	l := dx.Length()
-	if l > COLLISION_DIST {
+	l := dx.LengthSquared()
+	if l > COLLISION_DIST*COLLISION_DIST {
 		return
 	}
 
 	// move out of the bounding box
+	l = dx.Length() // supposedly more accurate than math.Sqrt(l)
 	b.O = p.O.Add(dx.Mul(COLLISION_DIST / l * 1.01))
 
 	// elastic collision
@@ -81,16 +97,46 @@ func moveBallCollide(b *Ball, p *Player) {
 	b.V = b.V.Sub(dx.Mul(COLLISION_FACTOR * (dx.Dot(dv) / l) / l))
 
 	// limit velocity components
-	if b.V.X < -BALL_POST_COLLISION_VEL_X_MAX {
-		b.V.X = -BALL_POST_COLLISION_VEL_X_MAX
-	} else if b.V.X > +BALL_POST_COLLISION_VEL_X_MAX {
-		b.V.X = +BALL_POST_COLLISION_VEL_X_MAX
+	clampAbs(&b.V.X, BALL_POST_COLLISION_VEL_X_MAX)
+	clampAbs(&b.V.Y, BALL_POST_COLLISION_VEL_Y_MAX)
+}
+
+func moveBallCollideNet(b *Ball) {
+	const NET_HALFW = NET_W / 2 // half-width
+	const L = 1 - NET_HALFW
+	const R = 1 + NET_HALFW
+
+	// fast bounding box check
+	if b.O.Y-RAD_BALL >= NET_H ||
+		b.O.X+RAD_BALL <= L ||
+		b.O.X-RAD_BALL >= R {
+		return
 	}
-	if b.V.Y < -BALL_POST_COLLISION_VEL_Y_MAX {
-		b.V.Y = -BALL_POST_COLLISION_VEL_Y_MAX
-	} else if b.V.Y > +BALL_POST_COLLISION_VEL_Y_MAX {
-		b.V.Y = +BALL_POST_COLLISION_VEL_Y_MAX
+
+	closest := b.O
+	clamp(&closest.X, L, R)
+	clamp(&closest.Y, 0, NET_H)
+
+	normal := b.O.Sub(closest)
+
+	if closest.X == b.O.X && closest.Y == b.O.Y {
+		normal.X = -normal.X
+		normal.Y = -normal.Y
+		goto INSIDE
 	}
+
+	if normal.LengthSquared() > RAD_BALL*RAD_BALL {
+		return
+	}
+INSIDE:
+
+	l := normal.Length()
+
+	// move out of the bounding box
+	b.O = b.O.Add(normal.Mul(RAD_BALL / l * 1.01))
+
+	// elastic collision (net has infinite mass)
+	b.V = b.V.Sub(normal.Mul(2 * (normal.Dot(b.V) / l) / l))
 }
 
 func moveBall(g *Game) bool {
@@ -106,14 +152,11 @@ func moveBall(g *Game) bool {
 	moveBallCollide(b, g.P1)
 	moveBallCollide(b, g.P2)
 
-	// TODO collide with net
+	// collide with net
+	moveBallCollideNet(b)
 
-	// constrain x
-	if b.O.X < RAD_BALL {
-		b.O.X = RAD_BALL
-		b.V.X = -b.V.X
-	} else if b.O.X > 2-RAD_BALL {
-		b.O.X = 2 - RAD_BALL
+	// constrain xRAD_BALL
+	if clamp(&b.O.X, RAD_BALL, 2-RAD_BALL) {
 		b.V.X = -b.V.X
 	}
 
@@ -149,11 +192,7 @@ func movePlayer(p *Player, left bool) {
 
 	// Move X
 	p.O.X += p.V.X / PHYS_FPS
-	if p.O.X < L {
-		p.O.X = L
-		p.V.X = 0
-	} else if p.O.X > R {
-		p.O.X = R
+	if clamp(&p.O.X, L, R) {
 		p.V.X = 0
 	}
 
@@ -163,7 +202,7 @@ func movePlayer(p *Player, left bool) {
 		p.O.Y += p.V.Y / PHYS_FPS
 		if p.O.Y <= 0 {
 			p.O.Y = 0
-			p.V.Y = 0
+			p.V.Y = 0 // stick to ground
 		} else if p.O.Y > 1 {
 			p.O.Y = 1
 		}

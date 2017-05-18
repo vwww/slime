@@ -83,6 +83,9 @@ func moveBallCollide(b *Ball, p *Player) {
 
 	// difference in position
 	dx := b.O.Sub(p.O)
+	if dx.X > COLLISION_DIST || dx.Y > COLLISION_DIST {
+		return
+	}
 	l := dx.LengthSquared()
 	if l > COLLISION_DIST*COLLISION_DIST {
 		return
@@ -117,23 +120,25 @@ func moveBallCollideNet(b *Ball) {
 	clamp(&closest.X, L, R)
 	clamp(&closest.Y, 0, NET_H)
 
-	normal := b.O.Sub(closest)
+	var normal Vec2
 
 	if closest.X == b.O.X && closest.Y == b.O.Y {
-		normal.X = -normal.X
-		normal.Y = -normal.Y
-		goto INSIDE
+		// inside: just force the ball to go up
+		closest.Y = NET_H
+		normal.X = 0
+		normal.Y = NET_H - b.O.Y
+	} else {
+		// outside: check if ball is too far away
+		normal = b.O.Sub(closest)
+		if normal.LengthSquared() > RAD_BALL*RAD_BALL {
+			return
+		}
 	}
-
-	if normal.LengthSquared() > RAD_BALL*RAD_BALL {
-		return
-	}
-INSIDE:
 
 	l := normal.Length()
 
 	// move out of the bounding box
-	b.O = b.O.Add(normal.Mul(RAD_BALL / l * 1.01))
+	b.O = closest.Add(normal.Mul(RAD_BALL / l * 1.01))
 
 	// elastic collision (net has infinite mass)
 	b.V = b.V.Sub(normal.Mul(2 * (normal.Dot(b.V) / l) / l))

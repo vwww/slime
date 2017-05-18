@@ -7,7 +7,9 @@ import (
 
 const PHYS_FPS = 50
 const NETW_FPS = 25
-const PHYS_PER_STATE = PHYS_FPS / NETW_FPS
+const PHYS_TIME = time.Second / PHYS_FPS
+const NETW_TIME = time.Second / NETW_FPS
+const PING_TIME = 250 * time.Millisecond
 
 const RAD_PL = 0.1
 const RAD_BALL = 0.03
@@ -160,7 +162,7 @@ func moveBall(g *Game) bool {
 	// collide with net
 	moveBallCollideNet(b)
 
-	// constrain xRAD_BALL
+	// constrain x
 	if clamp(&b.O.X, RAD_BALL, 2-RAD_BALL) {
 		b.V.X = -b.V.X
 	}
@@ -235,11 +237,16 @@ func (g *Game) Run() {
 	g.P1.SendEnter(g.P2.Name, g.P2.Color)
 	g.P2.SendEnter(g.P1.Name, g.P1.Color)
 
-	t := time.Now()
+	// game state
 	winner := 3
 	p1First := (rand.Intn(2) == 0)
+
+	// timers
+	gameStart := time.Now()
+	lastPhysics := gameStart
+	lastWorldState := gameStart
+	nextPing := gameStart
 	intermissionEnd := time.Time{}
-	pingDivider := 0
 
 GAME_LOOP:
 	for {
@@ -252,16 +259,41 @@ GAME_LOOP:
 			break GAME_LOOP
 		}
 
-		n := time.Now()
+		now := time.Now()
 
-		for n.After(t) {
-			oldWinner := winner
-			for i := 0; i < PHYS_PER_STATE; i++ {
-				g.PhysicsFrame(&winner)
-			}
+		// Apply physics
+		oldWinner := winner
+		for now.After(lastPhysics) {
+			g.PhysicsFrame(&winner)
+			lastPhysics = lastPhysics.Add(PHYS_TIME)
+		}
 
+		// Update world state
+		for now.After(lastWorldState) {
 			g.P1.SendState(transformState(g.P1, g.P2, g.B.MoveState, true))
 			g.P2.SendState(transformState(g.P1, g.P2, g.B.MoveState, false))
+			lastWorldState = lastWorldState.Add(NETW_TIME)
+		}
+
+		// Update winner
+		if winner != 0 {
+			if oldWinner == 0 {
+				g.P1.SendEndRound(winner == 1)
+				g.P2.SendEndRound(winner == 2)
+				intermissionEnd = now.Add(750 * time.Millisecond)
+			} else if now.After(intermissionEnd) {
+				winner = 0
+				p1First = !p1First
+				g.P1.SendNextRound(p1First)
+				g.P2.SendNextRound(!p1First)
+				g.StartRound(p1First)
+			}
+		}
+
+		// Send pings and ping results
+		if now.After(nextPing) {
+			g.P1.SendPing()
+			g.P2.SendPing()
 			// Send ping times when we have measurements for both
 			p1Ping := g.P1.Ping
 			if p1Ping != -1 {
@@ -271,31 +303,9 @@ GAME_LOOP:
 					g.P2.SendPingTimes(p2Ping, p1Ping)
 				}
 			}
-
-			if winner != 0 {
-				if oldWinner == 0 {
-					g.P1.SendEndRound(winner == 1)
-					g.P2.SendEndRound(winner == 2)
-					intermissionEnd = n.Add(750 * time.Millisecond)
-				} else if n.After(intermissionEnd) {
-					winner = 0
-					p1First = !p1First
-					g.P1.SendNextRound(p1First)
-					g.P2.SendNextRound(!p1First)
-					g.StartRound(p1First)
-				}
-			}
-			t = t.Add(1000 / NETW_FPS * time.Millisecond)
+			nextPing = now.Add(PING_TIME)
 		}
 
-		if pingDivider == 0 {
-			g.P1.SendPing()
-			g.P2.SendPing()
-			pingDivider = 6
-		} else {
-			pingDivider--
-		}
-
-		time.Sleep(40 * time.Millisecond)
+		time.Sleep(10 * time.Millisecond)
 	}
 }

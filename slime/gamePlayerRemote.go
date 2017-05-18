@@ -150,7 +150,6 @@ func (r *RemotePlayer) SendNextRound(isFirst bool) {
 func (r *RemotePlayer) SendPing() { r.Send(nil) }
 
 func (r *RemotePlayer) SendPingTimes(lPing, rPing int) {
-	// TODO move ping times to state message
 	if lPing > 0xFFF {
 		lPing = 0xFFF
 	}

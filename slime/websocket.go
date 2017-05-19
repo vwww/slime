@@ -1,11 +1,9 @@
 package slime
 
 import (
-	"encoding/binary"
 	"fmt"
 	"net/http"
 	"sync"
-	"time"
 
 	"github.com/gorilla/websocket"
 )
@@ -14,7 +12,7 @@ var pCount = 0
 var pCountLock sync.Mutex
 
 func HandleNum(w http.ResponseWriter, r *http.Request) {
-	n := pCount // no lock for reading int
+	n := pCount
 	fmt.Fprintf(w, "%v", n)
 }
 
@@ -73,16 +71,6 @@ func reader(r *RemotePlayer, c *websocket.Conn) {
 		if err != nil {
 			break
 		}
-		if len(msg) == 8 {
-			// intercept pongs
-			t := binary.BigEndian.Uint64(msg)
-			n := uint64(time.Now().UnixNano())
-			if n >= t {
-				newPing := int((n - t) / 1000000)
-				r.AddPing(newPing)
-			}
-			continue
-		}
 		r.Recv(msg)
 	}
 }
@@ -92,13 +80,6 @@ func writer(r *RemotePlayer, c *websocket.Conn) {
 
 	for msg := range r.SendBuf {
 		mt := websocket.BinaryMessage
-		if msg == nil {
-			// mt = websocket.PingMessage
-			msg = make([]byte, 9)
-			msg[0] = 9
-			t := uint64(time.Now().UnixNano())
-			binary.BigEndian.PutUint64(msg[1:], t)
-		}
 		if err := c.WriteMessage(mt, msg); err != nil {
 			break
 		}
@@ -122,7 +103,7 @@ func playMatches(p *Player) {
 		case matcher <- m:
 			<-m.result
 		case other := <-matcher:
-			m.result = nil // unused chan
+			m.result = nil // free unused chan
 			g := NewGame(p, other.p)
 			g.Run()
 			other.result <- struct{}{}

@@ -2,6 +2,7 @@ package slime
 
 import (
 	"encoding/binary"
+	"time"
 )
 
 type RemotePlayer struct {
@@ -30,8 +31,17 @@ func (r *RemotePlayer) Send(b []byte) {
 }
 
 func (r *RemotePlayer) Recv(b []byte) {
-	// For speed, process immediately instead of using chan
-	if len(b) != 0 {
+	// For speed, process immediately, instead of using chan
+	if len(b) == 8 {
+		// handle pongs
+		t := binary.BigEndian.Uint64(b)
+		n := uint64(time.Now().UnixNano())
+		if n >= t {
+			newPing := int((n - t) / 1000000)
+			r.AddPing(newPing)
+		}
+	} else if len(b) != 0 {
+		// use last move byte
 		b := b[len(b)-1]
 		r.L = (b & 1) != 0
 		r.R = (b & 2) != 0
@@ -147,7 +157,13 @@ func (r *RemotePlayer) SendNextRound(isFirst bool) {
 	}
 }
 
-func (r *RemotePlayer) SendPing() { r.Send(nil) }
+func (r *RemotePlayer) SendPing() {
+	b := make([]byte, 9)
+	b[0] = 9
+	t := uint64(time.Now().UnixNano())
+	binary.BigEndian.PutUint64(b[1:], t)
+	r.Send(b)
+}
 
 func (r *RemotePlayer) SendPingTimes(lPing, rPing int) {
 	if lPing > 0xFFF {

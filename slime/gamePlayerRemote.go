@@ -5,24 +5,22 @@ import (
 	"time"
 )
 
+// RemotePlayer handles the network message protocol for a Player.
 type RemotePlayer struct {
 	*Player
 	SendBuf chan []byte
 }
 
-var _ PlayerSender = (*RemotePlayer)(nil)
-
-func NewRemotePlayer(name []byte, col int) *RemotePlayer {
-	r := &RemotePlayer{
-		nil,
-		make(chan []byte, 70), // at least 2 seconds
+// newRemotePlayer makes a new RemotePlayer for a Player
+func newRemotePlayer(p *Player) RemotePlayer {
+	return RemotePlayer{
+		p,
+		make(chan []byte, 70), // enough for at least 2 seconds
 	}
-	r.Player = NewPlayer(name, col, r)
-	return r
 }
 
 // Send enqueues an outgoing message, or
-// on failure, closes the RemotePlayer.
+// on failure, closes the Player.
 func (r *RemotePlayer) Send(b []byte) {
 	select {
 	case r.SendBuf <- b:
@@ -41,7 +39,10 @@ func (r *RemotePlayer) Recv(b []byte) {
 		n := uint64(time.Now().UnixNano())
 		if n >= t {
 			newPing := int((n - t) / 1000000)
-			r.AddPing(newPing)
+			if r.Ping != -1 {
+				newPing = ((r.Ping * 3) + newPing) / 4
+			}
+			r.Ping = newPing
 		}
 	} else if len(b) != 0 {
 		// use last move byte

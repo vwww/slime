@@ -29,30 +29,18 @@ type Player struct {
 	Stopped  bool
 	stopLock sync.Mutex
 
-	// If implemented, we would "send" nothing to server bots
 	Ping int
-	PlayerSender
-}
-
-type PlayerSender interface {
-	SendWelcome()
-	SendState(self, other, ball MoveState, selfKeys, otherKeys InputState)
-	SendEnter(name string, col int)
-	SendLeave()
-	SendEndRound(win bool)
-	SendNextRound(isFirst bool)
-	SendPing()
-	SendPingTimes(lPing, rPing int)
+	RemotePlayer
 }
 
 // NewPlayer makes a player with the given name and color.
-func NewPlayer(name []byte, col int, s PlayerSender) *Player {
+func NewPlayer(name []byte, col int) *Player {
 	p := new(Player)
 	p.Name = filterName(name)
 	p.Color = filterColor(col)
 	p.Ping = -1
 	p.Stop = make(chan struct{})
-	p.PlayerSender = s
+	p.RemotePlayer = newRemotePlayer(p)
 	return p
 }
 
@@ -68,14 +56,6 @@ func (p *Player) Close() {
 			close(p.Stop)
 		}
 	}
-}
-
-// TODO inline this function
-func (p *Player) AddPing(ping int) {
-	if p.Ping != -1 {
-		ping = ((p.Ping * 3) + ping) / 4
-	}
-	p.Ping = ping
 }
 
 // filterName sanitizes a name.

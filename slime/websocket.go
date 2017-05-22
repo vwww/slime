@@ -53,7 +53,7 @@ func HandlePlayer(w http.ResponseWriter, r *http.Request) {
 	logline("-[%v] %v (%v total)", r.RemoteAddr, p.Name, pCount)
 }
 
-func processHello(c *websocket.Conn) *RemotePlayer {
+func processHello(c *websocket.Conn) *Player {
 	mt, h, err := c.ReadMessage()
 
 	if mt != websocket.BinaryMessage || err != nil || len(h) < 3 {
@@ -63,25 +63,25 @@ func processHello(c *websocket.Conn) *RemotePlayer {
 	name := h[3:]
 	col := int(h[0])<<16 | int(h[1])<<8 | int(h[2])
 
-	return NewRemotePlayer(name, col)
+	return NewPlayer(name, col)
 }
 
-func reader(r *RemotePlayer, c *websocket.Conn) {
-	defer r.Close()
+func reader(p *Player, c *websocket.Conn) {
+	defer p.Close()
 
 	for {
 		_, msg, err := c.ReadMessage()
 		if err != nil {
 			break
 		}
-		r.Recv(msg)
+		p.Recv(msg)
 	}
 }
 
-func writer(r *RemotePlayer, c *websocket.Conn) {
-	defer r.Close()
+func writer(p *Player, c *websocket.Conn) {
+	defer p.Close()
 
-	for msg := range r.SendBuf {
+	for msg := range p.SendBuf {
 		mt := websocket.BinaryMessage
 		if err := c.WriteMessage(mt, msg); err != nil {
 			break

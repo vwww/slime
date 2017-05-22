@@ -5,35 +5,66 @@ import (
 	"time"
 )
 
-const PHYS_FPS = 50
-const NETW_FPS = 25
-const PHYS_TIME = time.Second / PHYS_FPS
-const NETW_TIME = time.Second / NETW_FPS
-const PING_TIME = 250 * time.Millisecond
+// Timing constants
+const (
+	// Physics frames per second
+	PHYS_FPS = 50
+	// Network world states per second
+	NETW_FPS = 25
+	// Interval of physics frames
+	PHYS_TIME = time.Second / PHYS_FPS
+	// Interval of world state updates
+	NETW_TIME = time.Second / NETW_FPS
+	// Interval of pings
+	PING_TIME = 250 * time.Millisecond
+)
 
-const RAD_PL = 0.1
-const RAD_BALL = 0.03
+// Net constants
+const (
+	// Width
+	NET_W = 0.02
+	// Height
+	NET_H = 0.175
+)
 
-const NET_W = 0.02
-const NET_H = 0.175
+// Ball constants
+const (
+	// Maximum horizontal velocity after collision
+	BALL_POST_COLLISION_VEL_X_MAX = 0.9375
+	// Maximum vertical velocity after collision
+	BALL_POST_COLLISION_VEL_Y_MAX = 1.375
+	// Gravitational acceleration
+	BALL_GRAV_ACCEL = 3.125
 
-const BALL_POST_COLLISION_VEL_X_MAX = 0.9375
-const BALL_POST_COLLISION_VEL_Y_MAX = 1.375
-const BALL_GRAV_ACCEL = 3.125
+	// Radius
+	RAD_BALL = 0.03
+)
 
-const PL_SPEED_X = 0.5
-const PL_VEL_JUMP = 1.9375
-const PL_GRAV_ACCEL = 6.25
+// Player constants
+const (
+	// Horizontal movement speed
+	PL_SPEED_X = 0.5
+	// Initial vertical speed when jumping
+	PL_VEL_JUMP = 1.9375
+	// Gravitational acceleration
+	PL_GRAV_ACCEL = 6.25
 
+	// Radius
+	RAD_PL = 0.1
+)
+
+// Ball represents the ball in a Game
 type Ball struct {
 	MoveState
 }
 
+// Game represents the game state
 type Game struct {
 	P1, P2 *Player
 	B      Ball
 }
 
+// NewGame creates a game for two players.
 func NewGame(p1, p2 *Player) Game {
 	return Game{
 		P1: p1,
@@ -41,6 +72,7 @@ func NewGame(p1, p2 *Player) Game {
 	}
 }
 
+// StartRound resets the game state depending on which player serves.
 func (g *Game) StartRound(p1First bool) {
 	g.P1.O.X = 0.45
 	g.P1.O.Y = 0
@@ -146,6 +178,7 @@ func moveBallCollideNet(b *Ball) {
 	b.V = b.V.Sub(normal.Mul(2 * (normal.Dot(b.V) / l) / l))
 }
 
+// moveBall moves the ball and returns whether the ball hit the ground.
 func moveBall(g *Game) bool {
 	hitGround := false
 
@@ -216,6 +249,7 @@ func movePlayer(p *Player, left bool) {
 	}
 }
 
+// PhysicsFrame applies physics by moving all objects for a time increment of PHYS_TIME.
 func (g *Game) PhysicsFrame(winner *int) {
 	// Move players first
 	movePlayer(g.P1, true)
@@ -233,11 +267,12 @@ func (g *Game) PhysicsFrame(winner *int) {
 	}
 }
 
+// Run is a loop that does not stop until a player quits.
 func (g *Game) Run() {
 	g.P1.SendEnter(g.P2.Name, g.P2.Color)
 	g.P2.SendEnter(g.P1.Name, g.P1.Color)
 
-	// game state
+	// extra game state
 	winner := 3
 	p1First := (rand.Intn(2) == 0)
 

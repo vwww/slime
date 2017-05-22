@@ -1,3 +1,4 @@
+// Package slime implements the logic for the Slime Volleyball Multiplayer server.
 package slime
 
 import (
@@ -8,9 +9,10 @@ import (
 	"github.com/gorilla/websocket"
 )
 
-var pCount = 0
+var pCount = 0 // current number of players
 var pCountLock sync.Mutex
 
+// HandleNum writes the current number of players to the HTTP request.
 func HandleNum(w http.ResponseWriter, r *http.Request) {
 	n := pCount
 	fmt.Fprintf(w, "%v", n)
@@ -20,6 +22,7 @@ var upgrader = websocket.Upgrader{
 	CheckOrigin: func(r *http.Request) bool { return true },
 }
 
+// HandlePlayer serves a game client.
 func HandlePlayer(w http.ResponseWriter, r *http.Request) {
 	logline(" [%v] connected", r.RemoteAddr)
 	c, err := upgrader.Upgrade(w, r, nil)
@@ -101,6 +104,7 @@ func playMatches(p *Player) {
 		case <-p.Stop:
 			return
 		case matcher <- m:
+			// wait for game to end
 			<-m.result
 		case other := <-matcher:
 			m.result = nil // free unused chan

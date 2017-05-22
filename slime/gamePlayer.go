@@ -5,14 +5,17 @@ import (
 	"sync"
 )
 
+// MoveState is the origin (position) and velocity of dynamic entities.
 type MoveState struct {
 	O, V Vec2
 }
 
+// InputState represents client input (which keys on keyboard are pressed).
 type InputState struct {
 	L, R, U bool
 }
 
+// Player represents a connected client.
 type Player struct {
 	// Inputs
 	Name  string
@@ -42,6 +45,7 @@ type PlayerSender interface {
 	SendPingTimes(lPing, rPing int)
 }
 
+// NewPlayer makes a player with the given name and color.
 func NewPlayer(name []byte, col int, s PlayerSender) *Player {
 	p := new(Player)
 	p.Name = filterName(name)
@@ -52,6 +56,8 @@ func NewPlayer(name []byte, col int, s PlayerSender) *Player {
 	return p
 }
 
+// Close marks the player as "stopped" and closes the Stop chan, so
+// the Stop chan will no longer block.
 func (p *Player) Close() {
 	if !p.Stopped {
 		p.stopLock.Lock()
@@ -64,6 +70,7 @@ func (p *Player) Close() {
 	}
 }
 
+// TODO inline this function
 func (p *Player) AddPing(ping int) {
 	if p.Ping != -1 {
 		ping = ((p.Ping * 3) + ping) / 4
@@ -71,7 +78,13 @@ func (p *Player) AddPing(ping int) {
 	p.Ping = ping
 }
 
+// filterName sanitizes a name.
+// Invalid characters are removed.
+// Names are truncated if they are too long.
+// If a name would be blank, a valid name will be returned instead.
 func filterName(name []byte) string {
+	const MAX_NAME_LEN = 16
+
 	name = bytes.Map(func(r rune) rune {
 		switch {
 		case (r >= '0' && r <= '9'),
@@ -85,9 +98,10 @@ func filterName(name []byte) string {
 			return -1
 		}
 	}, name)
+
 	name = bytes.TrimSpace(name)
-	if len(name) > 16 {
-		name = name[:16]
+	if len(name) > MAX_NAME_LEN {
+		name = name[:MAX_NAME_LEN]
 	}
 
 	// Convert to string
@@ -98,6 +112,7 @@ func filterName(name []byte) string {
 	return s
 }
 
+// filterColor sanitizes a color value.
 func filterColor(c int) int {
 	return c & 0xFFFFFF
 }

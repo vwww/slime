@@ -18,6 +18,7 @@ func hello(res http.ResponseWriter, req *http.Request) {
 	fmt.Fprintf(res, "hello")
 }
 
+// Entry point of server program
 func main() {
 	// OLD background tasks
 	// slime_done := slime.LaunchCron()

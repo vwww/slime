@@ -21,6 +21,8 @@ func NewRemotePlayer(name []byte, col int) *RemotePlayer {
 	return r
 }
 
+// Send enqueues an outgoing message, or
+// on failure, closes the RemotePlayer.
 func (r *RemotePlayer) Send(b []byte) {
 	select {
 	case r.SendBuf <- b:
@@ -30,6 +32,7 @@ func (r *RemotePlayer) Send(b []byte) {
 	}
 }
 
+// Recv processes incoming messages.
 func (r *RemotePlayer) Recv(b []byte) {
 	// For speed, process immediately, instead of using chan
 	if len(b) == 8 {

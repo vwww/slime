@@ -3,6 +3,7 @@ package slime
 
 import (
 	"fmt"
+	"log"
 	"net/http"
 	"sync"
 
@@ -24,13 +25,13 @@ var upgrader = websocket.Upgrader{
 
 // HandlePlayer serves a game client.
 func HandlePlayer(w http.ResponseWriter, r *http.Request) {
-	logline(" [%v] connected", r.RemoteAddr)
+	log.Printf(" [%v] connected\n", r.RemoteAddr)
 	c, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
-		logline("*[%v] upgrade failed: %v", r.RemoteAddr, err)
+		log.Printf("*[%v] upgrade failed: %v\n", r.RemoteAddr, err)
 		return
 	}
-	defer logline(" [%v] disconnected", r.RemoteAddr)
+	defer log.Printf(" [%v] disconnected\n", r.RemoteAddr)
 	defer c.Close()
 
 	p := processHello(c)
@@ -41,7 +42,7 @@ func HandlePlayer(w http.ResponseWriter, r *http.Request) {
 	pCountLock.Lock()
 	pCount++
 	pCountLock.Unlock()
-	logline("+[%v] %v #%06x (%v now)", r.RemoteAddr, p.Name, p.Color, pCount)
+	log.Printf("+[%v] %v #%06x (%v now)\n", r.RemoteAddr, p.Name, p.Color, pCount)
 
 	go reader(p, c)
 	go writer(p, c)
@@ -50,7 +51,7 @@ func HandlePlayer(w http.ResponseWriter, r *http.Request) {
 	pCountLock.Lock()
 	pCount--
 	pCountLock.Unlock()
-	logline("-[%v] %v (%v total)", r.RemoteAddr, p.Name, pCount)
+	log.Printf("-[%v] %v (%v total)\n", r.RemoteAddr, p.Name, pCount)
 }
 
 func processHello(c *websocket.Conn) *Player {

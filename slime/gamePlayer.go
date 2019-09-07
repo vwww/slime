@@ -27,7 +27,7 @@ type Player struct {
 
 	Stop     chan struct{}
 	Stopped  bool
-	stopLock sync.Mutex
+	stopOnce sync.Once
 
 	Ping int
 	RemotePlayer
@@ -47,15 +47,10 @@ func NewPlayer(name []byte, col int) *Player {
 // Close marks the player as "stopped" and closes the Stop chan, so
 // the Stop chan will no longer block.
 func (p *Player) Close() {
-	if !p.Stopped {
-		p.stopLock.Lock()
-		defer p.stopLock.Unlock()
-
-		if !p.Stopped {
-			p.Stopped = true
-			close(p.Stop)
-		}
-	}
+	p.stopOnce.Do(func() {
+		p.Stopped = true
+		close(p.Stop)
+	})
 }
 
 // filterName sanitizes a name.

@@ -1,16 +1,21 @@
 package main
 
 import (
-	"victorz.ca/slimeserv/slime"
+	"victorz.ca/gameserv/duel"
+	"victorz.ca/gameserv/slime"
 
 	"fmt"
 	"net/http"
 	"os"
 )
 
+var duelGame = duel.NewGame()
+
 func init() {
 	http.HandleFunc("/s/n", slime.HandleNum)
 	http.HandleFunc("/s", slime.HandlePlayer)
+	http.HandleFunc("/d/n", duelGame.HandleNum)
+	http.HandleFunc("/d", duelGame.HandlePlayer)
 	http.HandleFunc("/", hello)
 }
 
@@ -23,6 +28,8 @@ func main() {
 	// OLD background tasks
 	// slime_done := slime.LaunchCron()
 	// defer close(slime_done)
+
+	go duelGame.Run()
 
 	bind := ":8080"
 	if env := os.Getenv("OPENSHIFT_GO_PORT"); env != "" {

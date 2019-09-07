@@ -8,7 +8,7 @@ import (
 // RemotePlayer handles the network message protocol for a Player.
 type RemotePlayer struct {
 	*Player
-	SendBuf chan []byte
+	SendBuf chan []byte // TODO FIXME needs to be closed?
 }
 
 // newRemotePlayer makes a new RemotePlayer for a Player
